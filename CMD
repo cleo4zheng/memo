@@ -1,0 +1,1 @@
+docker run --detach --name gitlab  --privileged  --publish 6443:443 --publish 6680:80 --publish 6622:22 --publish 8060:8060  --restart always  --volume /home/gitlab/logs:/var/log/gitlab:z  --volume /home/gitlab/data:/var/opt/gitlab:z  --volume /etc/localtime:/etc/localtime  5eff2e44957c
