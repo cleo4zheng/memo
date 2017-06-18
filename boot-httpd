@@ -1,0 +1,48 @@
+#!/bin/sh
+
+cd /home/centos/
+if [ -d './work_dir' ]
+then
+    rm -rf ./work_dir
+fi
+mkdir ./work_dir
+cp /var/lib/cloud/scripts/per-once/server.xml work_dir/
+cd work_dir/
+war_url=`curl -s http://169.254.169.254/openstack/2012-08-10/meta_data.json | jq '.meta.war_url' | sed 's/\"//g'`
+tomcat_url=`curl -s http://169.254.169.254/openstack/2012-08-10/meta_data.json | jq '.meta.tomcat_url' | sed 's/\"//g'`
+java_url=`curl -s http://169.254.169.254/openstack/2012-08-10/meta_data.json | jq '.meta.java_url' | sed 's/\"//g'`
+ftp_pass=`curl -s http://169.254.169.254/openstack/2012-08-10/meta_data.json | jq '.meta.ftp_pass' | sed 's/\"//g'`
+ftp_user=`curl -s http://169.254.169.254/openstack/2012-08-10/meta_data.json | jq '.meta.ftp_user' | sed 's/\"//g'`
+
+if [ -n "$ftp_user" ] && [ -n "$ftp_pass" ]
+then
+    wget_options="--ftp-user=$ftp_user --ftp-password=$ftp_pass"
+fi
+
+
+wget $war_url $wget_options
+war_package=`echo "$war_url" | awk -F"/" '{print $NF}'`
+war_name=`echo "$war_package" | awk -F"." '{print $1}'`
+
+wget $tomcat_url $wget_options
+tomcat_name=`echo "$tomcat_url" | awk -F"/" '{print $NF}'`
+tomcat_dir=`echo "$tomcat_name" | sed 's/\.tar\.gz$//g' | sed 's/\.gz$//' | sed 's/\.zip$//g'`
+
+wget $java_url $wget_options 
+jdk_name=`echo "$java_url" | awk -F"/" '{print $NF}'`
+jdk_dir="jdk1.7.0_80"
+
+unzip $tomcat_name
+tar -xzvf $jdk_name
+
+mv $war_package $tomcat_dir/webapps/
+
+sed -i "s/NNN/$war_name/g" server.xml
+cat server.xml > $tomcat_dir/conf/server.xml
+export PATH=$PATH:`pwd`/$jdk_dir/bin
+export JAVA_HOME=`pwd`/$jdk_dir
+
+cd $tomcat_dir/bin/
+chmod 755 ./startup.sh
+chmod 755 ./catalina.sh
+./startup.sh
